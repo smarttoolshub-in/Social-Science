@@ -28798,7 +28798,7 @@ body.quiz-mode nav {
             }
         };
 
-                   let currentSubjectKey = '';
+        let currentSubjectKey = '';
         let currentChapterObj = null;
         let currentQIndex = 0;
         let userChoices = {};
@@ -28821,7 +28821,7 @@ body.quiz-mode nav {
             } else if (state.view === 'sections') {
                 document.body.classList.remove('quiz-mode');
                 if(subjectsView) subjectsView.classList.remove('active');
-                if(sectionsView) sectionsView.classList.add('active');
+                if(sectionsView) subjectsView.classList.add('active');
                 if(quizView) quizView.style.display = 'none';
             }
         });
@@ -28884,7 +28884,7 @@ body.quiz-mode nav {
             // क्विज शुरू होते ही मुख्य हेडर छुपाने के लिए body पर क्लास जोड़ें
             document.body.classList.add('quiz-mode');
 
-            // क्विज व्यू का लेआउट (पैलेट सबसे ऊपर रहेगा)
+            // क्विज व्यू का लेआउट
             document.getElementById('quizView').innerHTML = `
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; background: #1e293b; padding: 10px 15px; border-radius: 8px; color: white;">
                     <span id="chapterBadge" style="font-size: 14px; font-weight: bold;"></span>
@@ -28892,7 +28892,7 @@ body.quiz-mode nav {
                 </div>
                 
                 <!-- प्रश्न पैलेट (सबसे ऊपर 1 से N नंबर ग्रिड) -->
-                <div id="paletteContainer" style="display: flex; flex-wrap: wrap; gap: 4px; margin: 10px 0; justify-content: center; padding: 8px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; max-height: 90px; overflow-y: auto;"></div>
+                <div id="paletteContainer" style="display: flex; flex-wrap: wrap; gap: 4px; margin: 10px 0; justify-content: center; padding: 8px; background: var(--card-bg, #f8fafc); border-radius: 8px; border: 1px solid #e2e8f0; max-height: 90px; overflow-y: auto;"></div>
 
                 <div id="questionText" style="font-size: 18px; font-weight: bold; margin: 15px 0;"></div>
                 <div id="optionsList" class="options-container"></div>
@@ -28931,20 +28931,23 @@ body.quiz-mode nav {
             optionsList.innerHTML = '';
             
             const userSelectedIdx = userChoices[currentQIndex];
+            const isDark = document.body.classList.contains('dark-mode');
 
             q.options.forEach((opt, idx) => {
                 const btn = document.createElement('button');
                 btn.className = 'option-btn';
                 btn.innerText = opt;
                 
-                // यदि पहले से उत्तर चुना गया है तो उसे हाइलाइट रखें
+                // डार्क मोड और लाइट मोड के अनुसार विकल्प का रंग सेट करें
                 if (userSelectedIdx === idx) {
-                    btn.style.background = '#dbeafe';
-                    btn.style.borderColor = '#2563eb';
+                    btn.style.background = isDark ? '#1e3a8a' : '#dbeafe';
+                    btn.style.borderColor = isDark ? '#60a5fa' : '#2563eb';
+                    btn.style.color = isDark ? '#ffffff' : '#0f172a';
                     btn.style.fontWeight = 'bold';
                 } else {
-                    btn.style.background = '#ffffff';
-                    btn.style.borderColor = '#cbd5e1';
+                    btn.style.background = isDark ? '#1e293b' : '#ffffff';
+                    btn.style.borderColor = isDark ? '#334155' : '#cbd5e1';
+                    btn.style.color = isDark ? '#f8fafc' : '#0f172a';
                     btn.style.fontWeight = 'normal';
                 }
 
@@ -28957,17 +28960,19 @@ body.quiz-mode nav {
 
         function selectOption(selectedIdx) {
             userChoices[currentQIndex] = selectedIdx; // उत्तर सेव करें
+            const isDark = document.body.classList.contains('dark-mode');
             
-            // चुने गए विकल्प को नीले रंग में हाइलाइट करें
             const buttons = document.querySelectorAll('.option-btn');
             buttons.forEach((b, idx) => {
                 if (idx === selectedIdx) {
-                    b.style.background = '#dbeafe';
-                    b.style.borderColor = '#2563eb';
+                    b.style.background = isDark ? '#1e3a8a' : '#dbeafe';
+                    b.style.borderColor = isDark ? '#60a5fa' : '#2563eb';
+                    b.style.color = isDark ? '#ffffff' : '#0f172a';
                     b.style.fontWeight = 'bold';
                 } else {
-                    b.style.background = '#ffffff';
-                    b.style.borderColor = '#cbd5e1';
+                    b.style.background = isDark ? '#1e293b' : '#ffffff';
+                    b.style.borderColor = isDark ? '#334155' : '#cbd5e1';
+                    b.style.color = isDark ? '#f8fafc' : '#0f172a';
                     b.style.fontWeight = 'normal';
                 }
             });
@@ -28980,25 +28985,34 @@ body.quiz-mode nav {
             if (!container) return;
             container.innerHTML = '';
             
+            const isDark = document.body.classList.contains('dark-mode');
+            if (isDark) {
+                container.style.background = '#0f172a';
+                container.style.borderColor = '#334155';
+            } else {
+                container.style.background = '#f8fafc';
+                container.style.borderColor = '#e2e8f0';
+            }
+
             currentChapterObj.questions.forEach((_, idx) => {
                 const pBtn = document.createElement('button');
                 pBtn.innerText = idx + 1;
                 pBtn.style.width = '28px';
                 pBtn.style.height = '28px';
                 pBtn.style.borderRadius = '4px';
-                pBtn.style.border = idx === currentQIndex ? '2px solid #0f172a' : '1px solid #cbd5e1';
                 pBtn.style.cursor = 'pointer';
                 pBtn.style.fontWeight = 'bold';
                 pBtn.style.fontSize = '11px';
 
-                // यदि उत्तर दे दिया गया है तो हरा रंग, वरना सफेद
                 const isAnswered = userChoices[idx] !== undefined;
                 if (isAnswered) {
                     pBtn.style.background = '#22c55e'; // हरा (उत्तर दिया गया)
                     pBtn.style.color = 'white';
+                    pBtn.style.border = idx === currentQIndex ? '2px solid #ffffff' : '1px solid #16a34a';
                 } else {
-                    pBtn.style.background = '#ffffff'; // सफेद (बाकी)
-                    pBtn.style.color = '#334155';
+                    pBtn.style.background = isDark ? '#1e293b' : '#ffffff';
+                    pBtn.style.color = isDark ? '#f8fafc' : '#334155';
+                    pBtn.style.border = idx === currentQIndex ? (isDark ? '2px solid #60a5fa' : '2px solid #0f172a') : (isDark ? '1px solid #475569' : '1px solid #cbd5e1');
                 }
 
                 pBtn.onclick = () => {
@@ -29154,6 +29168,4 @@ body.quiz-mode nav {
         }
     </script>
 </body>
-</html>                   
-                                       
-                
+</html>
