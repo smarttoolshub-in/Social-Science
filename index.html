@@ -28725,7 +28725,7 @@
         let currentQIndex = 0;
         let score = 0;
         let timer;
-        let timeLeft = 15;
+        let timeLeft = 30;
         let userChoices = {};
 
         // पेज लोड होते ही हिस्ट्री सेट करें
@@ -28815,7 +28815,7 @@
 
         function displayQuestion() {
             clearInterval(timer);
-            timeLeft = 15;
+            timeLeft = 30;
             document.getElementById('timer').innerText = timeLeft + 's';
             
             const q = currentChapterObj.questions[currentQIndex];
