@@ -329,6 +329,36 @@
     text-align: left;
     box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
+      .quiz-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+#chapterBadge {
+    background-color: #2563eb; /* नीला सुंदर बैकग्राउंड */
+    color: white;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+#timer {
+    background-color: #ef4444; /* लाल रंग का आकर्षक टाइमर बैज */
+    color: white;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-weight: bold;
+    font-size: 13px;
+}
+      /* जब क्विज मोड चालू हो, तब ऊपर का मुख्य हेडर छुप जाए */
+body.quiz-mode .main-header, 
+body.quiz-mode header, 
+body.quiz-mode nav {
+    display: none !important;
+}
     </style>
 </head>
 <body>
@@ -28768,12 +28798,9 @@
             }
         };
 
-        let currentSubjectKey = '';
+                   let currentSubjectKey = '';
         let currentChapterObj = null;
         let currentQIndex = 0;
-        let score = 0;
-        let timer;
-        let timeLeft = 30;
         let userChoices = {};
 
         // पेज लोड होते ही हिस्ट्री सेट करें
@@ -28782,16 +28809,17 @@
         // ब्राउज़र बैक बटन हैंडलर (History API) - क्रोम बंद होने से रोकने के लिए
         window.addEventListener('popstate', function(event) {
             const state = event.state;
-            clearInterval(timer);
             const subjectsView = document.getElementById('subjectsView');
             const sectionsView = document.getElementById('sectionsView');
             const quizView = document.getElementById('quizView');
 
             if (!state || state.view === 'home') {
+                document.body.classList.remove('quiz-mode');
                 if(subjectsView) subjectsView.classList.add('active');
                 if(sectionsView) sectionsView.classList.remove('active');
                 if(quizView) quizView.style.display = 'none';
             } else if (state.view === 'sections') {
+                document.body.classList.remove('quiz-mode');
                 if(subjectsView) subjectsView.classList.remove('active');
                 if(sectionsView) sectionsView.classList.add('active');
                 if(quizView) quizView.style.display = 'none';
@@ -28799,7 +28827,7 @@
         });
 
         function goHome() {
-            clearInterval(timer);
+            document.body.classList.remove('quiz-mode');
             document.getElementById('subjectsView').classList.add('active');
             document.getElementById('sectionsView').classList.remove('active');
             document.getElementById('quizView').style.display = 'none';
@@ -28807,7 +28835,7 @@
         }
 
         function backToSections() {
-            clearInterval(timer);
+            document.body.classList.remove('quiz-mode');
             document.getElementById('sectionsView').classList.add('active');
             document.getElementById('quizView').style.display = 'none';
             window.history.pushState({ view: 'sections', subject: currentSubjectKey }, '', '');
@@ -28851,21 +28879,27 @@
         function openChapter(chapterObj) {
             currentChapterObj = chapterObj;
             currentQIndex = 0;
-            score = 0;
             userChoices = {};
 
-            // क्विज व्यू का लेआउट दोबारा रीसेट करें (यदि पहले रिजल्ट दिखाया गया हो)
+            // क्विज शुरू होते ही मुख्य हेडर छुपाने के लिए body पर क्लास जोड़ें
+            document.body.classList.add('quiz-mode');
+
+            // क्विज व्यू का लेआउट (पैलेट सबसे ऊपर रहेगा)
             document.getElementById('quizView').innerHTML = `
-                <div class="quiz-header">
-                    <span id="chapterBadge"></span>
-                    <span id="timer">30s</span>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; background: #1e293b; padding: 10px 15px; border-radius: 8px; color: white;">
+                    <span id="chapterBadge" style="font-size: 14px; font-weight: bold;"></span>
+                    <span style="font-size: 12px; background: #3b82f6; padding: 3px 10px; border-radius: 12px; font-weight: bold;">परीक्षा मोड (Exam Mode)</span>
                 </div>
+                
+                <!-- प्रश्न पैलेट (सबसे ऊपर 1 से N नंबर ग्रिड) -->
+                <div id="paletteContainer" style="display: flex; flex-wrap: wrap; gap: 4px; margin: 10px 0; justify-content: center; padding: 8px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; max-height: 90px; overflow-y: auto;"></div>
+
                 <div id="questionText" style="font-size: 18px; font-weight: bold; margin: 15px 0;"></div>
                 <div id="optionsList" class="options-container"></div>
-                <div id="explanationBox" class="exp-box" style="display:none;"></div>
-                <div class="quiz-nav">
+                
+                <div class="quiz-nav" style="display: flex; justify-content: space-between; margin-top: 25px;">
                     <button onclick="prevQuestion()" class="nav-btn">पिछला</button>
-                    <button onclick="nextQuestion()" class="nav-btn">अगला</button>
+                    <button onclick="nextQuestion()" class="nav-btn" id="nextSubmitBtn" style="background: #2563eb;">अगला</button>
                 </div>
             `;
 
@@ -28877,74 +28911,102 @@
         }
 
         function displayQuestion() {
-            clearInterval(timer);
-            timeLeft = 30;
-            document.getElementById('timer').innerText = timeLeft + 's';
-            
             const q = currentChapterObj.questions[currentQIndex];
-            document.getElementById('chapterBadge').innerText = `${currentChapterObj.name} (${currentQIndex + 1}/${currentChapterObj.questions.length})`;
+            document.getElementById('chapterBadge').innerText = `${currentChapterObj.name} — (प्रश्न ${currentQIndex + 1}/${currentChapterObj.questions.length})`;
             document.getElementById('questionText').innerText = q.q;
+
+            // अगर आखिरी सवाल है, तो बटन को "फाइनल सबमिट" बनाएं
+            const nextBtn = document.getElementById('nextSubmitBtn');
+            if (nextBtn) {
+                if (currentQIndex === currentChapterObj.questions.length - 1) {
+                    nextBtn.innerText = "फाइनल सबमिट";
+                    nextBtn.style.background = "#16a34a"; // हरा रंग
+                } else {
+                    nextBtn.innerText = "अगला";
+                    nextBtn.style.background = "#2563eb"; // नीला रंग
+                }
+            }
 
             const optionsList = document.getElementById('optionsList');
             optionsList.innerHTML = '';
             
-            const expBox = document.getElementById('explanationBox');
-            expBox.style.display = 'none';
-            expBox.innerHTML = '';
+            const userSelectedIdx = userChoices[currentQIndex];
 
             q.options.forEach((opt, idx) => {
                 const btn = document.createElement('button');
                 btn.className = 'option-btn';
                 btn.innerText = opt;
-                btn.onclick = () => selectOption(idx, btn);
+                
+                // यदि पहले से उत्तर चुना गया है तो उसे हाइलाइट रखें
+                if (userSelectedIdx === idx) {
+                    btn.style.background = '#dbeafe';
+                    btn.style.borderColor = '#2563eb';
+                    btn.style.fontWeight = 'bold';
+                } else {
+                    btn.style.background = '#ffffff';
+                    btn.style.borderColor = '#cbd5e1';
+                    btn.style.fontWeight = 'normal';
+                }
+
+                btn.onclick = () => selectOption(idx);
                 optionsList.appendChild(btn);
             });
 
-            startTimer();
+            renderPalette();
         }
 
-        function startTimer() {
-            timer = setInterval(() => {
-                timeLeft--;
-                document.getElementById('timer').innerText = timeLeft + 's';
-                if (timeLeft <= 0) {
-                    clearInterval(timer);
-                    autoLockAnswer();
-                }
-            }, 1000);
-        }
-
-        function selectOption(selectedIdx, btnElement) {
-            clearInterval(timer);
-            const q = currentChapterObj.questions[currentQIndex];
-            userChoices[currentQIndex] = selectedIdx; // यूजर का जवाब सेव करें
+        function selectOption(selectedIdx) {
+            userChoices[currentQIndex] = selectedIdx; // उत्तर सेव करें
+            
+            // चुने गए विकल्प को नीले रंग में हाइलाइट करें
             const buttons = document.querySelectorAll('.option-btn');
-
             buttons.forEach((b, idx) => {
-                b.disabled = true;
-                if (idx === q.answer) {
-                    b.classList.add('correct');
-                } else if (idx === selectedIdx) {
-                    b.classList.add('wrong');
+                if (idx === selectedIdx) {
+                    b.style.background = '#dbeafe';
+                    b.style.borderColor = '#2563eb';
+                    b.style.fontWeight = 'bold';
+                } else {
+                    b.style.background = '#ffffff';
+                    b.style.borderColor = '#cbd5e1';
+                    b.style.fontWeight = 'normal';
                 }
             });
 
-            const expBox = document.getElementById('explanationBox');
-            expBox.innerHTML = `<strong>स्पष्टीकरण (Explanation):</strong> ${q.exp}`;
-            expBox.style.display = 'block';
+            renderPalette(); // पैलेट अपडेट करें
         }
 
-        function autoLockAnswer() {
-            const q = currentChapterObj.questions[currentQIndex];
-            userChoices[currentQIndex] = -1; // समय समाप्त होने पर -1 सेव करें (छूट गया)
-            const buttons = document.querySelectorAll('.option-btn');
-            buttons.forEach((b, idx) => {
-                b.disabled = true;
-                if (idx === q.answer) b.classList.add('correct');
+        function renderPalette() {
+            const container = document.getElementById('paletteContainer');
+            if (!container) return;
+            container.innerHTML = '';
+            
+            currentChapterObj.questions.forEach((_, idx) => {
+                const pBtn = document.createElement('button');
+                pBtn.innerText = idx + 1;
+                pBtn.style.width = '28px';
+                pBtn.style.height = '28px';
+                pBtn.style.borderRadius = '4px';
+                pBtn.style.border = idx === currentQIndex ? '2px solid #0f172a' : '1px solid #cbd5e1';
+                pBtn.style.cursor = 'pointer';
+                pBtn.style.fontWeight = 'bold';
+                pBtn.style.fontSize = '11px';
+
+                // यदि उत्तर दे दिया गया है तो हरा रंग, वरना सफेद
+                const isAnswered = userChoices[idx] !== undefined;
+                if (isAnswered) {
+                    pBtn.style.background = '#22c55e'; // हरा (उत्तर दिया गया)
+                    pBtn.style.color = 'white';
+                } else {
+                    pBtn.style.background = '#ffffff'; // सफेद (बाकी)
+                    pBtn.style.color = '#334155';
+                }
+
+                pBtn.onclick = () => {
+                    currentQIndex = idx;
+                    displayQuestion();
+                };
+                container.appendChild(pBtn);
             });
-            const expBox = document.getElementById('explanationBox');
-            expBox.innerHTML = `<strong>समय समाप्त! स्पष्टीकरण:</strong> ${q.exp}`;
-            expBox.style.display = 'block';
         }
 
         function nextQuestion() {
@@ -28952,7 +29014,10 @@
                 currentQIndex++;
                 displayQuestion();
             } else {
-                showQuizResult(); // चैप्टर खत्म होने पर स्कोर और फिल्टरable प्रीव्यू दिखाएं
+                // फाइनल सबमिट करने से पहले कन्फर्मेशन
+                if (confirm("क्या आप वाकई अपनी क्विज सबमिट करना चाहते हैं?")) {
+                    showQuizResult();
+                }
             }
         }
 
@@ -28963,29 +29028,39 @@
             }
         }
 
-        // स्कोर कार्ड और विस्तृत प्रीव्यू (फिल्टर विकल्प के साथ) दिखाने का फंक्शन
+        // फाइनल सबमिट के बाद स्कोर कार्ड और विस्तृत प्रीव्यू (चारों फिल्टर के साथ) दिखाने का फंक्शन
         function showQuizResult() {
-            clearInterval(timer);
-            let finalScore = 0;
+            let correctCount = 0;
+            let incorrectCount = 0;
+            let notAttemptedCount = 0;
             const questions = currentChapterObj.questions;
 
-            // पहले ही स्कोर कैलकुलेट कर लें
             questions.forEach((q, idx) => {
                 const userAns = userChoices[idx];
-                if (userAns === q.answer) finalScore++;
+                if (userAns === q.answer) {
+                    correctCount++;
+                } else if (userAns !== undefined) {
+                    incorrectCount++;
+                } else {
+                    notAttemptedCount++;
+                }
             });
 
             const quizView = document.getElementById('quizView');
             quizView.innerHTML = `
                 <div style="max-width: 750px; margin: 0 auto; padding: 10px; text-align: center;">
                     <h2 style="margin-bottom: 5px;">🎉 क्विज समाप्त!</h2>
-                    <h3 style="color: #2563eb; margin-bottom: 12px;">आपका स्कोर: ${finalScore} / ${questions.length}</h3>
+                    <h3 style="color: #2563eb; margin-bottom: 8px;">आपका स्कोर: ${correctCount} / ${questions.length}</h3>
+                    <p style="font-size: 13px; color: #475569; margin-bottom: 15px;">
+                        ✅ सही: ${correctCount} | ❌ गलत: ${incorrectCount} | ⚠️ उत्तर नहीं दिया: ${notAttemptedCount}
+                    </p>
                     
-                    <!-- फिल्टर करने के लिए बटन -->
-                    <div style="margin-bottom: 15px; display: flex; justify-content: center; gap: 8px;">
-                        <button onclick="renderReviewList('all')" id="filter-all" style="padding: 6px 14px; border-radius: 6px; border: 1px solid #2563eb; background: #2563eb; color: white; cursor: pointer; font-size: 13px;">सभी (${questions.length})</button>
-                        <button onclick="renderReviewList('correct')" id="filter-correct" style="padding: 6px 14px; border-radius: 6px; border: 1px solid #22c55e; background: white; color: #22c55e; cursor: pointer; font-size: 13px; font-weight: bold;">सही</button>
-                        <button onclick="renderReviewList('incorrect')" id="filter-incorrect" style="padding: 6px 14px; border-radius: 6px; border: 1px solid #ef4444; background: white; color: #ef4444; cursor: pointer; font-size: 13px; font-weight: bold;">गलत</button>
+                    <!-- चारों फिल्टर बटन (सभी, सही, गलत, उत्तर नहीं दिया) -->
+                    <div style="margin-bottom: 15px; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px;">
+                        <button onclick="renderReviewList('all')" id="filter-all" style="padding: 6px 10px; border-radius: 6px; border: 1px solid #2563eb; background: #2563eb; color: white; cursor: pointer; font-size: 12px;">सभी (${questions.length})</button>
+                        <button onclick="renderReviewList('correct')" id="filter-correct" style="padding: 6px 10px; border-radius: 6px; border: 1px solid #22c55e; background: white; color: #22c55e; cursor: pointer; font-size: 12px; font-weight: bold;">सही (${correctCount})</button>
+                        <button onclick="renderReviewList('incorrect')" id="filter-incorrect" style="padding: 6px 10px; border-radius: 6px; border: 1px solid #ef4444; background: white; color: #ef4444; cursor: pointer; font-size: 12px; font-weight: bold;">गलत (${incorrectCount})</button>
+                        <button onclick="renderReviewList('notAttempted')" id="filter-notAttempted" style="padding: 6px 10px; border-radius: 6px; border: 1px solid #d97706; background: white; color: #d97706; cursor: pointer; font-size: 12px; font-weight: bold;">उत्तर नहीं दिया (${notAttemptedCount})</button>
                     </div>
 
                     <!-- रिव्यू लिस्ट दिखाने की जगह -->
@@ -28996,44 +29071,58 @@
                 </div>
             `;
 
-            // डिफ़ॉल्ट रूप से 'all' दिखाएं
             renderReviewList('all');
         }
 
-        // प्रश्नों को फिल्टर करके दिखाने का फंक्शन (सभी, सही, गलत)
+        // प्रश्नों को फिल्टर करके दिखाने का फंक्शन
         function renderReviewList(filterType) {
             const questions = currentChapterObj.questions;
             let reviewHTML = '';
 
-            // बटन का एक्टिव स्टाइल बदलने के लिए
-            ['all', 'correct', 'incorrect'].forEach(type => {
+            ['all', 'correct', 'incorrect', 'notAttempted'].forEach(type => {
                 const btn = document.getElementById(`filter-${type}`);
                 if(btn) {
                     if(type === filterType) {
-                        btn.style.background = type === 'correct' ? '#22c55e' : (type === 'incorrect' ? '#ef4444' : '#2563eb');
+                        if(type === 'correct') btn.style.background = '#22c55e';
+                        else if(type === 'incorrect') btn.style.background = '#ef4444';
+                        else if(type === 'notAttempted') btn.style.background = '#d97706';
+                        else btn.style.background = '#2563eb';
                         btn.style.color = 'white';
                     } else {
                         btn.style.background = 'white';
-                        btn.style.color = type === 'correct' ? '#22c55e' : (type === 'incorrect' ? '#ef4444' : '#2563eb');
+                        if(type === 'correct') btn.style.color = '#22c55e';
+                        else if(type === 'incorrect') btn.style.color = '#ef4444';
+                        else if(type === 'notAttempted') btn.style.color = '#d97706';
+                        else btn.style.color = '#2563eb';
                     }
                 }
             });
 
             questions.forEach((q, idx) => {
                 const userAns = userChoices[idx];
+                const isAttempted = userAns !== undefined;
                 const isCorrect = (userAns === q.answer);
 
-                // यदि फिल्टर 'correct' है और सवाल गलत है, तो छोड़ दें
                 if (filterType === 'correct' && !isCorrect) return;
-                // यदि फिल्टर 'incorrect' है और सवाल सही है, तो छोड़ दें
-                if (filterType === 'incorrect' && isCorrect) return;
+                if (filterType === 'incorrect' && (!isAttempted || isCorrect)) return;
+                if (filterType === 'notAttempted' && isAttempted) return;
 
-                let userAnsText = (userAns !== undefined && userAns !== -1) ? q.options[userAns] : '<span style="color:red;">समय समाप्त (छोड़ दिया)</span>';
+                let userAnsText = isAttempted ? q.options[userAns] : '<span style="color:#d97706; font-weight:bold;">उत्तर नहीं दिया (Not Attempted)</span>';
                 
+                let cardBg = 'rgba(100, 116, 139, 0.08)';
+                let borderColor = '#64748b';
+                let statusIcon = '⚠️';
+
+                if (isAttempted) {
+                    cardBg = isCorrect ? 'rgba(34, 197, 94, 0.08)' : 'rgba(239, 68, 68, 0.08)';
+                    borderColor = isCorrect ? '#22c55e' : '#ef4444';
+                    statusIcon = isCorrect ? '✅' : '❌';
+                }
+
                 reviewHTML += `
-                    <div style="background: ${isCorrect ? 'rgba(34, 197, 94, 0.08)' : 'rgba(239, 68, 68, 0.08)'}; border-left: 4px solid ${isCorrect ? '#22c55e' : '#ef4444'}; padding: 14px; margin-bottom: 12px; border-radius: 8px; font-size: 14px;">
+                    <div style="background: ${cardBg}; border-left: 4px solid ${borderColor}; padding: 14px; margin-bottom: 12px; border-radius: 8px; font-size: 14px;">
                         <p style="font-weight: bold; margin-bottom: 6px; color: inherit;">Q${idx + 1}: ${q.q}</p>
-                        <p style="margin: 4px 0;"><b>आपका उत्तर:</b> ${userAnsText} ${isCorrect ? '✅' : '❌'}</p>
+                        <p style="margin: 4px 0;"><b>आपका उत्तर:</b> ${userAnsText} ${statusIcon}</p>
                         ${!isCorrect ? `<p style="margin: 4px 0; color: #16a34a;"><b>सही उत्तर:</b> ${q.options[q.answer]}</p>` : ''}
                         <p style="margin: 6px 0 0 0; font-size: 13px; color: #64748b;"><b>स्पष्टीकरण:</b> ${q.exp}</p>
                     </div>
@@ -29065,4 +29154,6 @@
         }
     </script>
 </body>
-</html>
+</html>                   
+                                       
+                
